@@ -1,0 +1,16 @@
+[package]
+name = "nyaa-tui"
+version = "1.0.0"
+edition = "2024"
+description = "Browse nyaa.si from your terminal"
+license = "MIT"
+repository = "https://github.com/metaory/nyaa-tui"
+
+[dependencies]
+ratatui = "0.30.2"
+roxmltree = "0.21"
+ureq = "3"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
