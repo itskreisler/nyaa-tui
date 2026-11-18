@@ -10,10 +10,6 @@
     </p>
 </div>
 
-<div align="center">
-    <img src=".github/screenshot.png" alt="screenshot" width="80%" />
-</div>
-
 <p align="center">
     <img src=".github/demo.gif" alt="Demo" width="80%" />
 </p>
