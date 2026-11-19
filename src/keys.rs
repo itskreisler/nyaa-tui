@@ -1,4 +1,6 @@
-use ratatui::crossterm::event::KeyCode::{self, Backspace, Char, Down, End, Enter, Esc, Home, Up};
+use ratatui::crossterm::event::KeyCode::{
+    self, Backspace, Char, Delete, Down, End, Enter, Esc, Home, Left, Right, Up,
+};
 
 use crate::nyaa::Field;
 
@@ -21,6 +23,11 @@ pub enum Action {
     Submit,
     Cancel,
     Delete,
+    Remove,
+    Left,
+    Right,
+    Home,
+    End,
 }
 
 /// Keys that trigger `action`, the first one is shown in hints.
@@ -78,5 +85,11 @@ pub const SEARCH: Keymap = &[
         bind(&[Esc], "cancel", Action::Cancel),
         bind(&[Backspace], "delete", Action::Delete),
     ],
-    &[],
+    &[
+        bind(&[Left], "left", Action::Left),
+        bind(&[Right], "right", Action::Right),
+        bind(&[Home], "start", Action::Home),
+        bind(&[End], "end", Action::End),
+        bind(&[Delete], "remove", Action::Remove),
+    ],
 ];

@@ -4,7 +4,7 @@ use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Cell, Paragraph, Row, Table};
 
-use crate::app::{App, Note, Status};
+use crate::app::{App, Draft, Note, Status};
 use crate::keys::Bind;
 use crate::nyaa::{Field, Torrent};
 use crate::{popup, title};
@@ -31,8 +31,8 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     hints(frame, footer, actions);
 
     let line = query_line(app);
-    if let Some((field, _)) = &app.input {
-        frame.set_cursor_position(cursor(header, &line, *field));
+    if let Some(draft) = &app.input {
+        frame.set_cursor_position(cursor(header, &line, draft));
     }
     let bar = Paragraph::new(line).block(panel("nyaa · anime english-translated"));
     frame.render_widget(bar, header);
@@ -51,14 +51,15 @@ fn note(note: &Note) -> Line<'_> {
     }
 }
 
-/// End of the edited field's value span.
-fn cursor(area: Rect, line: &Line, field: Field) -> Position {
-    let width: usize = line.spans[..2 * (field as usize + 1)]
+/// Insertion point inside the edited field.
+fn cursor(area: Rect, line: &Line, draft: &Draft) -> Position {
+    let before: usize = line.spans[..=2 * (draft.field as usize)]
         .iter()
         .map(Span::width)
         .sum();
+    let typed = Span::raw(&draft.text[..draft.at]).width();
     Position::new(
-        area.x + 1 + u16::try_from(width).unwrap_or(u16::MAX),
+        area.x + 1 + u16::try_from(before + typed).unwrap_or(u16::MAX),
         area.y + 1,
     )
 }
@@ -70,7 +71,7 @@ fn present(text: &str) -> Option<&str> {
 /// Draft while `field` is edited, else the saved value if any.
 fn shown<'a>(app: &'a App, field: Field, saved: &'a str) -> Option<&'a str> {
     match &app.input {
-        Some((edited, draft)) if *edited == field => Some(draft),
+        Some(draft) if draft.field == field => Some(&draft.text),
         _ => present(saved),
     }
 }

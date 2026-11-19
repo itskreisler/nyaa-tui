@@ -26,11 +26,70 @@ pub enum Status {
     Failed(String),
 }
 
+/// Field being typed. `at` is a byte offset on a char boundary.
+pub struct Draft {
+    pub field: Field,
+    pub text: String,
+    pub at: usize,
+}
+
+impl Draft {
+    fn open(field: Field, text: String) -> Self {
+        Self {
+            field,
+            at: text.len(),
+            text,
+        }
+    }
+
+    fn insert(&mut self, c: char) {
+        self.text.insert(self.at, c);
+        self.at += c.len_utf8();
+    }
+
+    fn backspace(&mut self) {
+        let Some(c) = self.text[..self.at].chars().next_back() else {
+            return;
+        };
+        self.at -= c.len_utf8();
+        self.text.remove(self.at);
+    }
+
+    fn remove(&mut self) {
+        let Some(_) = self.text[self.at..].chars().next() else {
+            return;
+        };
+        self.text.remove(self.at);
+    }
+
+    fn left(&mut self) {
+        let Some(c) = self.text[..self.at].chars().next_back() else {
+            return;
+        };
+        self.at -= c.len_utf8();
+    }
+
+    fn right(&mut self) {
+        let Some(c) = self.text[self.at..].chars().next() else {
+            return;
+        };
+        self.at += c.len_utf8();
+    }
+
+    fn home(&mut self) {
+        self.at = 0;
+    }
+
+    fn end(&mut self) {
+        self.at = self.text.len();
+    }
+}
+
 #[derive(Default)]
 pub struct App {
     pub query: Query,
     /// Draft of the field being edited, `Some` while editing.
-    pub input: Option<(Field, String)>,
+    pub input: Option<Draft>,
     pub torrents: Vec<Torrent>,
     pub table: TableState,
     pub status: Status,
@@ -106,6 +165,7 @@ impl App {
                 .map_err(|err| err.to_string());
             tx.send(Msg::Note(saved))
         });
+        self.table.select_next();
     }
 
     fn update(&mut self, msg: Msg, tx: &Sender<Msg>) {
@@ -142,7 +202,7 @@ impl App {
             .find(|bind| bind.keys.contains(&key.code));
         match (bind, key.code) {
             (Some(bind), _) => self.apply(bind.action, tx),
-            (None, KeyCode::Char(c)) => self.input.as_mut().map_or((), |(_, text)| text.push(c)),
+            (None, KeyCode::Char(c)) => self.edit(|draft| draft.insert(c)),
             _ => {}
         }
     }
@@ -154,7 +214,9 @@ impl App {
             Action::Up => self.table.select_previous(),
             Action::Top => self.table.select_first(),
             Action::Bottom => self.table.select_last(),
-            Action::Focus(field) => self.input = Some((field, query.field(field).clone())),
+            Action::Focus(field) => {
+                self.input = Some(Draft::open(field, query.field(field).clone()));
+            }
             Action::Uploader => query.user = nyaa::next(UPLOADERS, query.user.as_str()).into(),
             Action::Filter => query.filter = nyaa::next(&Filter::ALL, query.filter),
             Action::Sort => {
@@ -168,14 +230,60 @@ impl App {
             Action::Close => self.details = false,
             Action::Quit => self.quit = true,
             Action::Submit => {
-                if let Some((field, text)) = self.input.take() {
-                    *query.field(field) = text;
+                if let Some(draft) = self.input.take() {
+                    *query.field(draft.field) = draft.text;
                 }
             }
             Action::Cancel => self.input = None,
-            Action::Delete => {
-                self.input.as_mut().and_then(|(_, text)| text.pop());
-            }
+            Action::Delete => self.edit(Draft::backspace),
+            Action::Remove => self.edit(Draft::remove),
+            Action::Left => self.edit(Draft::left),
+            Action::Right => self.edit(Draft::right),
+            Action::Home => self.edit(Draft::home),
+            Action::End => self.edit(Draft::end),
         }
+    }
+
+    fn edit(&mut self, change: impl FnOnce(&mut Draft)) {
+        let Some(draft) = self.input.as_mut() else {
+            return;
+        };
+        change(draft);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Draft;
+    use crate::nyaa::Field;
+
+    #[test]
+    fn caret_edits_in_the_middle() {
+        let mut draft = Draft::open(Field::Text, "cat".into());
+        draft.home();
+        draft.right();
+        draft.insert('o');
+        assert_eq!((draft.text.as_str(), draft.at), ("coat", 2));
+        draft.backspace();
+        assert_eq!((draft.text.as_str(), draft.at), ("cat", 1));
+        draft.end();
+        draft.left();
+        draft.remove();
+        assert_eq!((draft.text.as_str(), draft.at), ("ca", 2));
+        draft.home();
+        draft.left();
+        draft.backspace();
+        assert_eq!((draft.text.as_str(), draft.at), ("ca", 0));
+    }
+
+    #[test]
+    fn caret_steps_one_char() {
+        let mut draft = Draft::open(Field::Text, "aあb".into());
+        draft.left();
+        draft.backspace();
+        assert_eq!((draft.text.as_str(), draft.at), ("ab", 1));
+        draft.home();
+        draft.remove();
+        assert_eq!((draft.text.as_str(), draft.at), ("b", 0));
     }
 }

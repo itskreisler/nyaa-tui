@@ -11,7 +11,7 @@
 </div>
 
 <p align="center">
-    <img src=".github/demo.gif" alt="Demo" width="80%" />
+    <img src=".github/demo.gif" alt="Demo" width="90%" />
 </p>
 
 ## Features
