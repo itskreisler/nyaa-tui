@@ -14,6 +14,7 @@ pub enum Action {
     Sort,
     Copy,
     Download,
+    Reload,
     Details,
     Close,
     Quit,
@@ -35,6 +36,7 @@ const fn bind(keys: &'static [KeyCode], hint: &'static str, action: Action) -> B
 
 const COPY: Bind = bind(&[Char('c')], "copy magnet", Action::Copy);
 const DOWNLOAD: Bind = bind(&[Char('d')], "download", Action::Download);
+const RELOAD: Bind = bind(&[Char('r')], "reload", Action::Reload);
 
 /// Header binds that change the query fields, then footer binds for the rest.
 pub type Keymap = &'static [&'static [Bind]; 2];
@@ -55,6 +57,7 @@ pub const NORMAL: Keymap = &[
         bind(&[Enter], "details", Action::Details),
         COPY,
         DOWNLOAD,
+        RELOAD,
         bind(&[Char('q'), Esc], "quit", Action::Quit),
     ],
 ];

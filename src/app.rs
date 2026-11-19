@@ -163,6 +163,7 @@ impl App {
             }
             Action::Copy => self.copy(),
             Action::Download => self.download(tx),
+            Action::Reload => self.search(tx),
             Action::Details => self.details = self.selected().is_some(),
             Action::Close => self.details = false,
             Action::Quit => self.quit = true,

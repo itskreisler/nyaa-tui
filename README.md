@@ -71,6 +71,7 @@ nyaa-tui
 | `Enter`                   | details / submit search |
 | `c`                       | copy magnet             |
 | `d`                       | download `.torrent`     |
+| `r`                       | reload                  |
 | `/`                       | search                  |
 | `u`                       | cycle uploader          |
 | `U`                       | type uploader           |
