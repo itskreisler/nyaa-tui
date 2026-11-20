@@ -17,7 +17,7 @@
 ## Zen mode
 
 <p align="center">
-    <img src=".github/screenshot-zen.png" alt="Demo Zen" width="90%" />
+    <img src=".github/screenshot-zen.png?v=1795000000" alt="Demo Zen" width="90%" />
 </p>
 
 ## Features
