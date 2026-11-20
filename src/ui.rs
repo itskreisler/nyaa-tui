@@ -56,6 +56,26 @@ const fn keep(col: &Col, zen: bool) -> bool {
 }
 
 pub fn render(frame: &mut Frame, app: &mut App) {
+    let (header, body) = place(frame, app);
+    search(frame, header, app);
+    let mark = app.note.as_ref().map_or_default(note);
+    let table = results(&app.torrents, &app.status, &app.query.user, mark, app.zen);
+    frame.render_stateful_widget(table, body, &mut app.table);
+    if app.torrents.is_empty() && matches!(app.status, Status::Loading) {
+        spinner(frame, body, app.spin);
+    }
+    if let Some(torrent) = app.selected().filter(|_| app.details) {
+        popup::render(frame, body, torrent);
+    }
+}
+
+/// Header and results. Normal mode also draws both key rows.
+fn place(frame: &mut Frame, app: &App) -> (Rect, Rect) {
+    if app.zen {
+        let [header, body] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(frame.area());
+        return (header, body);
+    }
     let [top, header, body, footer] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(3),
@@ -66,21 +86,40 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     let &[fields, actions] = app.keys();
     hints(frame, top, fields);
     hints(frame, footer, actions);
+    (header, body)
+}
 
+fn search(frame: &mut Frame, area: Rect, app: &App) {
     let line = query_line(app);
     if let Some(draft) = &app.input {
-        frame.set_cursor_position(cursor(header, &line, draft));
+        frame.set_cursor_position(cursor(area, &line, draft, app.zen));
     }
-    let bar = Paragraph::new(line).block(panel("nyaa · anime english-translated"));
-    frame.render_widget(bar, header);
-    let note = app.note.as_ref().map_or_default(note);
-    let table = results(&app.torrents, &app.status, &app.query.user, note, app.zen);
-    frame.render_stateful_widget(table, body, &mut app.table);
-    if app.torrents.is_empty() && matches!(app.status, Status::Loading) {
-        spinner(frame, body, app.spin);
+    if app.zen {
+        return zen_bar(frame, area, line, feedback(app));
     }
-    if let Some(torrent) = app.selected().filter(|_| app.details) {
-        popup::render(frame, body, torrent);
+    frame.render_widget(
+        Paragraph::new(line).block(panel("nyaa · anime english-translated")),
+        area,
+    );
+}
+
+/// Search line on the left, note or status on the right.
+fn zen_bar(frame: &mut Frame, area: Rect, line: Line, mark: Line) {
+    let width = u16::try_from(mark.width()).unwrap_or(u16::MAX);
+    let [text, slot] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(width)]).areas(area);
+    frame.render_widget(Paragraph::new(line), text);
+    frame.render_widget(Paragraph::new(mark), slot);
+}
+
+fn feedback(app: &App) -> Line<'_> {
+    if let Some(item) = &app.note {
+        return note(item);
+    }
+    match &app.status {
+        Status::Loading => " loading ".light_yellow().into(),
+        Status::Failed(err) => format!(" {err} ").light_red().into(),
+        Status::Done => Line::default(),
     }
 }
 
@@ -91,16 +130,17 @@ fn note(note: &Note) -> Line<'_> {
     }
 }
 
-/// Insertion point inside the edited field.
-fn cursor(area: Rect, line: &Line, draft: &Draft) -> Position {
+/// Insertion point inside the edited field. Zen has no border inset.
+fn cursor(area: Rect, line: &Line, draft: &Draft, zen: bool) -> Position {
     let before: usize = line.spans[..=2 * (draft.field as usize)]
         .iter()
         .map(Span::width)
         .sum();
     let typed = Span::raw(&draft.text[..draft.at]).width();
+    let inset = u16::from(!zen);
     Position::new(
-        area.x + 1 + u16::try_from(before + typed).unwrap_or(u16::MAX),
-        area.y + 1,
+        area.x + inset + u16::try_from(before + typed).unwrap_or(u16::MAX),
+        area.y + inset,
     )
 }
 
@@ -155,15 +195,18 @@ fn results<'a>(
         .bold()
         .light_cyan();
     let rows = torrents.iter().map(|torrent| row(torrent, user, zen));
-    Table::new(rows, shown.map(|col| col.width))
+    let table = Table::new(rows, shown.map(|col| col.width))
         .header(header)
         .row_highlight_style(Style::new().reversed())
-        .highlight_symbol("▌")
-        .block(
-            panel("results")
-                .title(Line::from(badge(torrents.len(), status)).right_aligned())
-                .title(note.right_aligned()),
-        )
+        .highlight_symbol("▌");
+    if zen {
+        return table;
+    }
+    table.block(
+        panel("results")
+            .title(Line::from(badge(torrents.len(), status)).right_aligned())
+            .title(note.right_aligned()),
+    )
 }
 
 fn row<'a>(torrent: &'a Torrent, user: &str, zen: bool) -> Row<'a> {
