@@ -9,14 +9,51 @@ use crate::keys::Bind;
 use crate::nyaa::{Field, Torrent};
 use crate::{popup, title};
 
-/// Name, width and color per column, `None` keeps the row's trusted/remake color.
-const COLUMNS: [(&str, Constraint, Option<Color>); 5] = [
-    ("title", Constraint::Fill(1), None),
-    ("size", Constraint::Length(10), Some(Color::LightBlue)),
-    ("date", Constraint::Length(17), Some(Color::LightMagenta)),
-    ("seed", Constraint::Length(5), Some(Color::LightGreen)),
-    ("leech", Constraint::Length(5), Some(Color::LightRed)),
+/// One results column. `zen` columns stay visible in zen mode.
+#[derive(Clone, Copy)]
+struct Col {
+    name: &'static str,
+    width: Constraint,
+    fg: Option<Color>,
+    zen: bool,
+}
+
+const COLUMNS: [Col; 5] = [
+    Col {
+        name: "title",
+        width: Constraint::Fill(1),
+        fg: None,
+        zen: true,
+    },
+    Col {
+        name: "size",
+        width: Constraint::Length(10),
+        fg: Some(Color::LightBlue),
+        zen: false,
+    },
+    Col {
+        name: "date",
+        width: Constraint::Length(17),
+        fg: Some(Color::LightMagenta),
+        zen: false,
+    },
+    Col {
+        name: "seed",
+        width: Constraint::Length(5),
+        fg: Some(Color::LightGreen),
+        zen: true,
+    },
+    Col {
+        name: "leech",
+        width: Constraint::Length(5),
+        fg: Some(Color::LightRed),
+        zen: false,
+    },
 ];
+
+const fn keep(col: &Col, zen: bool) -> bool {
+    !zen || col.zen
+}
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let [top, header, body, footer] = Layout::vertical([
@@ -37,8 +74,11 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     let bar = Paragraph::new(line).block(panel("nyaa · anime english-translated"));
     frame.render_widget(bar, header);
     let note = app.note.as_ref().map_or_default(note);
-    let table = results(&app.torrents, &app.status, &app.query.user, note);
+    let table = results(&app.torrents, &app.status, &app.query.user, note, app.zen);
     frame.render_stateful_widget(table, body, &mut app.table);
+    if app.torrents.is_empty() && matches!(app.status, Status::Loading) {
+        spinner(frame, body, app.spin);
+    }
     if let Some(torrent) = app.selected().filter(|_| app.details) {
         popup::render(frame, body, torrent);
     }
@@ -103,10 +143,19 @@ fn query_line(app: &App) -> Line<'_> {
         .collect()
 }
 
-fn results<'a>(torrents: &'a [Torrent], status: &Status, user: &str, note: Line<'a>) -> Table<'a> {
-    let header = Row::new(COLUMNS.map(|(name, ..)| name)).bold().light_cyan();
-    let rows = torrents.iter().map(|torrent| row(torrent, user));
-    Table::new(rows, COLUMNS.map(|(_, width, _)| width))
+fn results<'a>(
+    torrents: &'a [Torrent],
+    status: &Status,
+    user: &str,
+    note: Line<'a>,
+    zen: bool,
+) -> Table<'a> {
+    let shown = COLUMNS.into_iter().filter(move |col| keep(col, zen));
+    let header = Row::new(shown.clone().map(|col| col.name))
+        .bold()
+        .light_cyan();
+    let rows = torrents.iter().map(|torrent| row(torrent, user, zen));
+    Table::new(rows, shown.map(|col| col.width))
         .header(header)
         .row_highlight_style(Style::new().reversed())
         .highlight_symbol("▌")
@@ -117,7 +166,7 @@ fn results<'a>(torrents: &'a [Torrent], status: &Status, user: &str, note: Line<
         )
 }
 
-fn row<'a>(torrent: &'a Torrent, user: &str) -> Row<'a> {
+fn row<'a>(torrent: &'a Torrent, user: &str, zen: bool) -> Row<'a> {
     let style = match (torrent.trusted, torrent.remake) {
         (_, true) => Style::new().light_red(),
         (true, _) => Style::new().light_green(),
@@ -130,11 +179,26 @@ fn row<'a>(torrent: &'a Torrent, user: &str) -> Row<'a> {
         torrent.seeders.to_string().into(),
         torrent.leechers.to_string().into(),
     ];
-    let colored = cells
-        .into_iter()
-        .zip(COLUMNS)
-        .map(|(cell, (.., fg))| cell.style(Style { fg, ..Style::new() }));
+    let colored = cells.into_iter().zip(COLUMNS).filter_map(|(cell, col)| {
+        let fg = (zen && col.name == "seed")
+            .then_some(Color::Yellow)
+            .or(col.fg);
+        keep(&col, zen).then(|| cell.style(Style { fg, ..Style::new() }))
+    });
     Row::new(colored).style(style)
+}
+
+const SPIN: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Braille spinner centered in the empty results panel.
+fn spinner(frame: &mut Frame, area: Rect, step: u8) {
+    let line = Line::from(vec![
+        SPIN[usize::from(step) % SPIN.len()].bold().light_yellow(),
+        " loading".dark_gray(),
+    ]);
+    let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
+    let spot = area.centered(Constraint::Length(width), Constraint::Length(1));
+    frame.render_widget(line, spot);
 }
 
 fn badge(count: usize, status: &Status) -> Span<'static> {

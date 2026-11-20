@@ -1,4 +1,5 @@
-use std::sync::mpsc::{self, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::time::Duration;
 use std::{io, iter, thread};
 
 use ratatui::DefaultTerminal;
@@ -11,6 +12,8 @@ use crate::{os, ui};
 
 /// Outcome shown next to the results badge until the next key press.
 pub type Note = Result<String, String>;
+
+const TICK: Duration = Duration::from_millis(80);
 
 pub enum Msg {
     Input(Event),
@@ -95,7 +98,10 @@ pub struct App {
     pub status: Status,
     pub note: Option<Note>,
     pub details: bool,
+    pub zen: bool,
     pub sort: Sort,
+    /// Spinner step while a search is in flight.
+    pub spin: u8,
     quit: bool,
 }
 
@@ -111,12 +117,33 @@ impl App {
         self.search(&tx);
         while !self.quit {
             terminal.draw(|frame| ui::render(frame, &mut self))?;
-            let Ok(msg) = rx.recv() else { break };
+            let Some(msg) = self.recv(&rx) else { continue };
             let before = self.query.clone();
             self.update(msg, &tx);
             (self.query != before).then(|| self.search(&tx));
         }
         Ok(())
+    }
+
+    /// Next message. `None` is a spinner tick, or quit after the channel closes.
+    fn recv(&mut self, rx: &Receiver<Msg>) -> Option<Msg> {
+        let pending = match self.status {
+            Status::Loading => rx.recv_timeout(TICK),
+            Status::Done | Status::Failed(_) => {
+                rx.recv().map_err(|_| RecvTimeoutError::Disconnected)
+            }
+        };
+        match pending {
+            Ok(msg) => Some(msg),
+            Err(RecvTimeoutError::Timeout) => {
+                self.spin = self.spin.wrapping_add(1);
+                None
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                self.quit = true;
+                None
+            }
+        }
     }
 
     pub const fn keys(&self) -> Keymap {
@@ -223,6 +250,7 @@ impl App {
                 self.sort = nyaa::next(&Sort::ALL, self.sort);
                 self.resort();
             }
+            Action::Zen => self.zen = !self.zen,
             Action::Copy => self.copy(),
             Action::Download => self.download(tx),
             Action::Reload => self.search(tx),

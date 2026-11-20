@@ -14,6 +14,7 @@ pub enum Action {
     Uploader,
     Filter,
     Sort,
+    Zen,
     Copy,
     Download,
     Reload,
@@ -65,6 +66,7 @@ pub const NORMAL: Keymap = &[
         COPY,
         DOWNLOAD,
         RELOAD,
+        bind(&[Char('z')], "zen", Action::Zen),
         bind(&[Char('q'), Esc], "quit", Action::Quit),
     ],
 ];

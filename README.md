@@ -14,6 +14,12 @@
     <img src=".github/demo.gif" alt="Demo" width="90%" />
 </p>
 
+## Zen mode
+
+<p align="center">
+    <img src=".github/screenshot-zen.png" alt="Demo Zen" width="90%" />
+</p>
+
 ## Features
 
 - Search English-translated anime, starting on the latest trusted releases
@@ -77,6 +83,7 @@ nyaa-tui
 | `U`                       | type uploader           |
 | `f`                       | cycle filter            |
 | `s`                       | cycle sort              |
+| `z`                       | zen (title and seed)    |
 | `Esc`                     | cancel / close / quit   |
 | `q`                       | quit                    |
 
