@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::{env, fs};
 
@@ -10,6 +10,16 @@ const CLIPBOARDS: [&[&str]; 4] = [
     &["pbcopy"],
     &["clip"],
 ];
+
+/// Termux paths, also visible from proot-distro.
+const TERMUX_HOME: &str = "/data/data/com.termux/files/home";
+const TERMUX_CLIPBOARD: &str = "/data/data/com.termux/files/usr/bin/termux-clipboard-set";
+const TERMUX_CLIPBOARD_CMD: &[&str] = &[TERMUX_CLIPBOARD];
+
+/// Equivalent to checking `test -d $TERMUX_HOME` and `test -f $TERMUX_CLIPBOARD`.
+fn has_termux_clipboard() -> bool {
+    Path::new(TERMUX_HOME).is_dir() && Path::new(TERMUX_CLIPBOARD).is_file()
+}
 
 fn spawn(argv: &[&str]) -> io::Result<Child> {
     Command::new(argv[0])
@@ -32,7 +42,12 @@ fn pipe(argv: &[&str], text: &str) -> bool {
 }
 
 pub fn copy(text: &str) -> io::Result<()> {
-    CLIPBOARDS
+    let mut clipboards = Vec::with_capacity(CLIPBOARDS.len() + 1);
+    if has_termux_clipboard() {
+        clipboards.push(TERMUX_CLIPBOARD_CMD);
+    }
+    clipboards.extend_from_slice(&CLIPBOARDS);
+    clipboards
         .iter()
         .any(|argv| pipe(argv, text))
         .then_some(())

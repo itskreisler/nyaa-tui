@@ -30,9 +30,13 @@
 - Trusted rows in green, remakes in red
 - Titles shortened to the show, episode and quality
 - Details popup: comments, peers, trackers, magnet and download link
-- Copy the magnet link to the clipboard (`wl-copy`, `xclip`, `pbcopy` or `clip`)
+- Copy the magnet link to the clipboard (`termux-clipboard-set` on Termux, `wl-copy`, `xclip`, `pbcopy` or `clip`)
 - Download the `.torrent` file into your XDG download dir (or `~/Downloads`)
 - Prebuilt binaries for Linux, macOS and Windows
+
+In Termux or proot-distro, `c` uses `termux-clipboard-set` when
+`/data/data/com.termux/files/home` exists and
+`/data/data/com.termux/files/usr/bin/termux-clipboard-set` is present.
 
 ## Installation
 
