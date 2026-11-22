@@ -175,6 +175,14 @@ impl App {
         });
     }
 
+    fn open(&mut self) {
+        self.note = self.selected().map(|torrent| {
+            os::open_url(&torrent.magnet())
+                .map(|()| "opened magnet".into())
+                .map_err(|err| err.to_string())
+        });
+    }
+
     fn download(&mut self, tx: &Sender<Msg>) {
         let Some(torrent) = self.selected() else {
             return;
@@ -252,6 +260,7 @@ impl App {
             }
             Action::Zen => self.zen = !self.zen,
             Action::Copy => self.copy(),
+            Action::Open => self.open(),
             Action::Download => self.download(tx),
             Action::Reload => self.search(tx),
             Action::Details => self.details = self.selected().is_some(),

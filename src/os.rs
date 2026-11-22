@@ -11,13 +11,18 @@ const CLIPBOARDS: [&[&str]; 4] = [
     &["clip"],
 ];
 
+/// URL openers tried in order, the first one that succeeds wins.
+const OPENERS: [&[&str]; 2] = [&["xdg-open"], &["open"]];
+
 /// Termux paths, also visible from proot-distro.
 const TERMUX_HOME: &str = "/data/data/com.termux/files/home";
 const TERMUX_CLIPBOARD: &str = "/data/data/com.termux/files/usr/bin/termux-clipboard-set";
+const TERMUX_OPEN_URL: &str = "/data/data/com.termux/files/usr/bin/termux-open-url";
 const TERMUX_CLIPBOARD_CMD: &[&str] = &[TERMUX_CLIPBOARD];
+const TERMUX_OPEN_URL_CMD: &[&str] = &[TERMUX_OPEN_URL];
 
 /// Equivalent to checking `test -d $TERMUX_HOME` and `test -f $TERMUX_CLIPBOARD`.
-fn has_termux_clipboard() -> bool {
+fn has_termux() -> bool {
     Path::new(TERMUX_HOME).is_dir() && Path::new(TERMUX_CLIPBOARD).is_file()
 }
 
@@ -41,9 +46,20 @@ fn pipe(argv: &[&str], text: &str) -> bool {
     })
 }
 
+/// Runs `argv` with `arg`, true when it exits cleanly.
+fn run(argv: &[&str], arg: &str) -> bool {
+    Command::new(argv[0])
+        .args(&argv[1..])
+        .arg(arg)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 pub fn copy(text: &str) -> io::Result<()> {
     let mut clipboards = Vec::with_capacity(CLIPBOARDS.len() + 1);
-    if has_termux_clipboard() {
+    if has_termux() {
         clipboards.push(TERMUX_CLIPBOARD_CMD);
     }
     clipboards.extend_from_slice(&CLIPBOARDS);
@@ -52,6 +68,19 @@ pub fn copy(text: &str) -> io::Result<()> {
         .any(|argv| pipe(argv, text))
         .then_some(())
         .ok_or_else(|| io::Error::other("no working clipboard command"))
+}
+
+pub fn open_url(url: &str) -> io::Result<()> {
+    let mut openers = Vec::with_capacity(OPENERS.len() + 1);
+    if has_termux() {
+        openers.push(TERMUX_OPEN_URL_CMD);
+    }
+    openers.extend_from_slice(&OPENERS);
+    openers
+        .iter()
+        .any(|argv| run(argv, url))
+        .then_some(())
+        .ok_or_else(|| io::Error::other("no working url opener"))
 }
 
 fn home() -> String {

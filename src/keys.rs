@@ -16,6 +16,7 @@ pub enum Action {
     Sort,
     Zen,
     Copy,
+    Open,
     Download,
     Reload,
     Details,
@@ -43,6 +44,7 @@ const fn bind(keys: &'static [KeyCode], hint: &'static str, action: Action) -> B
 }
 
 const COPY: Bind = bind(&[Char('c')], "copy magnet", Action::Copy);
+const OPEN: Bind = bind(&[Char('o')], "open magnet", Action::Open);
 const DOWNLOAD: Bind = bind(&[Char('d')], "download", Action::Download);
 const RELOAD: Bind = bind(&[Char('r')], "reload", Action::Reload);
 
@@ -64,6 +66,7 @@ pub const NORMAL: Keymap = &[
         bind(&[Char('G'), End], "bottom", Action::Bottom),
         bind(&[Enter], "details", Action::Details),
         COPY,
+        OPEN,
         DOWNLOAD,
         RELOAD,
         bind(&[Char('z')], "zen", Action::Zen),
@@ -76,6 +79,7 @@ pub const DETAILS: Keymap = &[
     &[
         bind(&[Esc, Enter], "close", Action::Close),
         COPY,
+        OPEN,
         DOWNLOAD,
         bind(&[Char('q')], "quit", Action::Quit),
     ],

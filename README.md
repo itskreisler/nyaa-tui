@@ -31,11 +31,12 @@
 - Titles shortened to the show, episode and quality
 - Details popup: comments, peers, trackers, magnet and download link
 - Copy the magnet link to the clipboard (`termux-clipboard-set` on Termux, `wl-copy`, `xclip`, `pbcopy` or `clip`)
+- Open the magnet with an Android app via `termux-open-url`, or `xdg-open` / `open` elsewhere
 - Download the `.torrent` file into your XDG download dir (or `~/Downloads`)
 - Prebuilt binaries for Linux, macOS and Windows
 
-In Termux or proot-distro, `c` uses `termux-clipboard-set` when
-`/data/data/com.termux/files/home` exists and
+In Termux or proot-distro, `c` uses `termux-clipboard-set` and `o` uses
+`termux-open-url` when `/data/data/com.termux/files/home` exists and
 `/data/data/com.termux/files/usr/bin/termux-clipboard-set` is present.
 
 ## Installation
@@ -80,6 +81,7 @@ nyaa-tui
 | `g` / `G`, `Home` / `End` | top / bottom            |
 | `Enter`                   | details / submit search |
 | `c`                       | copy magnet             |
+| `o`                       | open magnet in app      |
 | `d`                       | download `.torrent`     |
 | `r`                       | reload                  |
 | `/`                       | search                  |
